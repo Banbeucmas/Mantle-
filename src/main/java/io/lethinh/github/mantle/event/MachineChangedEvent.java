@@ -72,34 +72,27 @@ public class MachineChangedEvent implements Listener {
 	@EventHandler
 	public void onBlockBroken(BlockBreakEvent event) {
 		Block block = event.getBlock();
-		Player player = event.getPlayer();
 
-		for (BlockMachine machine : BlockMachine.MACHINES) {
-			if (!machine.block.getLocation().equals(block.getLocation())) {
-				continue;
-			}
+		BlockMachine.MACHINES.removeIf(machine -> {
+			if (machine.block.getLocation().equals(block.getLocation())) {
+				machine.setStoppedTick(true);
 
-			if (!machine.accessiblePlayers.contains(player.getName())) {
-				event.setCancelled(true);
-				player.sendMessage(ChatColor.RED + "You cannot break this machine because you it is locked!");
-				continue;
-			}
+				if (event.getPlayer().getGameMode() != GameMode.CREATIVE) {
+					event.setDropItems(false);
 
-			machine.setStoppedTick(true);
-
-			if (event.getPlayer().getGameMode() != GameMode.CREATIVE) {
-				event.setDropItems(false);
-
-				for (ItemStack stack : MantleItemStacks.STACKS) {
-					if (stack.getItemMeta().getLocalizedName().replace(Mantle.PLUGIN_ID + "_", "")
-							.equalsIgnoreCase(machine.getName())) {
-						machine.dropItems(stack);
+					for (ItemStack stack : MantleItemStacks.STACKS) {
+						if (stack.getItemMeta().getLocalizedName().replace(Mantle.PLUGIN_ID + "_", "")
+								.equalsIgnoreCase(machine.getName())) {
+							machine.dropItems(stack);
+						}
 					}
 				}
+
+				return true;
 			}
 
-			BlockMachine.MACHINES.remove(machine);
-		}
+			return false;
+		});
 	}
 
 	@EventHandler

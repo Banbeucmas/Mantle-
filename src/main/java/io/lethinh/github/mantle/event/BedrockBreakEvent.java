@@ -13,7 +13,6 @@ import org.bukkit.event.block.BlockDamageEvent;
 import org.bukkit.inventory.ItemStack;
 
 import io.lethinh.github.mantle.MantleItemStacks;
-import io.lethinh.github.mantle.utils.Utils;
 
 /**
  * Created by Le Thinh
@@ -29,8 +28,8 @@ public class BedrockBreakEvent implements Listener {
 		World world = player.getWorld();
 		Location blockPos = block.getLocation();
 
-		if (!Utils.areStacksEqualIgnoreDurabilityAndAmount(stack, MantleItemStacks.BEDROCK_BREAKER)
-				|| Material.BEDROCK != block.getType() || player.getGameMode() == GameMode.CREATIVE) {
+		if (!MantleItemStacks.BEDROCK_BREAKER.equals(stack) || Material.BEDROCK != block.getType()
+				|| player.getGameMode() != GameMode.CREATIVE) {
 			return;
 		}
 

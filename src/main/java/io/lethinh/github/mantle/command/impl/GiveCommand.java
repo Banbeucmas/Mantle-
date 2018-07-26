@@ -25,7 +25,7 @@ public class GiveCommand extends AbstractCommand {
 		CommandSender sender = getSender();
 		String[] args = getArgs();
 
-		if (!sender.hasPermission(getPermission()) && !sender.getName().equals("Nesfan")) {
+		if (!sender.hasPermission(getPermission())) {
 			return ExecutionResult.NO_PERMISSION;
 		}
 

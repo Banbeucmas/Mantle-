@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.logging.Logger;
 
 import org.apache.commons.lang.StringUtils;
 import org.bukkit.Bukkit;
@@ -23,7 +22,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.util.NumberConversions;
 
 import io.lethinh.github.mantle.Mantle;
 import io.lethinh.github.mantle.block.impl.BlockBlockBreaker;
@@ -45,7 +43,6 @@ public abstract class BlockMachine {
 	public static final CopyOnWriteArrayList<BlockMachine> MACHINES = new CopyOnWriteArrayList<>();
 	public static final Properties PROPERTIES = new Properties();
 	protected static final long DEFAULT_DELAY = 20L, DEFAULT_PERIOD = 10L;
-	private static boolean legacyConfig = false;
 
 	/* Instance Members */
 	public final Block block;
@@ -141,10 +138,6 @@ public abstract class BlockMachine {
 	}
 
 	public boolean canOpen(Player player) {
-		if (accessiblePlayers.isEmpty()) {
-			return accessiblePlayers.add(player.getName());
-		}
-
 		return accessiblePlayers.stream().anyMatch(p -> p.equals(player.getName()));
 	}
 
@@ -166,7 +159,6 @@ public abstract class BlockMachine {
 	/* NBT */
 	public NBTTagCompound writeToNBT() {
 		NBTTagCompound nbt = new NBTTagCompound();
-
 		nbt.setTag("Inventory", Utils.serializeInventory(inventory));
 		nbt.setBoolean("StoppedTick", isStoppedTick());
 
@@ -186,55 +178,20 @@ public abstract class BlockMachine {
 	}
 
 	public void readFromNBT(NBTTagCompound nbt) {
-		if (legacyConfig) {
-			if (nbt.hasKey("Inventory")) {
-				Inventory to = Utils.deserializeInventory(nbt.getCompoundTag("Inventory"));
+		inventory = Utils.deserializeInventory(nbt.getCompoundTag("Inventory"));
+		setStoppedTick(nbt.getBoolean("StoppedTick"));
 
-				if (to != null) {
-					inventory = to;
-				}
-			}
+		int allowedSize = nbt.getInteger("AllowedSize");
+		accessiblePlayers = new ArrayList<>(allowedSize);
+		NBTTagList playerTags = nbt.getTagList("AllowedPlayers", Constants.NBT.TAG_COMPOUND);
 
-			if (nbt.hasKey("StoppedTick")) {
-				setStoppedTick(nbt.getBoolean("StoppedTick"));
-			}
+		for (int i = 0; i < playerTags.tagCount(); ++i) {
+			NBTTagCompound playerTag = playerTags.getCompoundTagAt(i);
+			int index = playerTag.getInteger("Index");
+			String name = playerTag.getString("Name");
 
-			if (nbt.hasKey("AllowedSize") && nbt.hasKey("AllowedPlayers")) {
-				int allowedSize = nbt.getInteger("AllowedSize");
-				accessiblePlayers = new ArrayList<>(allowedSize);
-				NBTTagList playerTags = nbt.getTagList("AllowedPlayers", Constants.NBT.TAG_COMPOUND);
-
-				for (int i = 0; i < playerTags.tagCount(); ++i) {
-					NBTTagCompound playerTag = playerTags.getCompoundTagAt(i);
-					int index = playerTag.getInteger("Index");
-					String name = playerTag.getString("Name");
-
-					if (index >= 0 && index < allowedSize) {
-						accessiblePlayers.add(index, name);
-					}
-				}
-			}
-		} else {
-			Inventory to = Utils.deserializeInventory(nbt.getCompoundTag("Inventory"));
-
-			if (to != null) {
-				inventory = to;
-			}
-
-			setStoppedTick(nbt.getBoolean("StoppedTick"));
-
-			int allowedSize = nbt.getInteger("AllowedSize");
-			accessiblePlayers = new ArrayList<>(allowedSize);
-			NBTTagList playerTags = nbt.getTagList("AllowedPlayers", Constants.NBT.TAG_COMPOUND);
-
-			for (int i = 0; i < playerTags.tagCount(); ++i) {
-				NBTTagCompound playerTag = playerTags.getCompoundTagAt(i);
-				int index = playerTag.getInteger("Index");
-				String name = playerTag.getString("Name");
-
-				if (index >= 0 && index < allowedSize) {
-					accessiblePlayers.add(index, name);
-				}
+			if (index >= 0 && index < allowedSize) {
+				accessiblePlayers.add(index, name);
 			}
 		}
 	}
@@ -257,6 +214,12 @@ public abstract class BlockMachine {
 
 		for (BlockMachine save : MACHINES) {
 			Location location = save.block.getLocation();
+			String invName = PROPERTIES.getProperty(Utils.serializeLocation(location));
+
+			if (StringUtils.isBlank(invName)) {
+				continue;
+			}
+
 			File out = new File(dir, Utils.serializeLocation(location));
 			NBTHelper.safeWrite(save.writeToNBT(), out);
 		}
@@ -297,7 +260,6 @@ public abstract class BlockMachine {
 		}
 
 		PROPERTIES.clear();
-		PROPERTIES.setProperty("ConfigVersion", Mantle.VERSION);
 
 		for (BlockMachine machine : MACHINES) {
 			Location location = machine.block.getLocation();
@@ -328,45 +290,11 @@ public abstract class BlockMachine {
 			return;
 		}
 
-		Logger logger = Mantle.instance.getLogger();
-
-		if (StringUtils.isBlank(PROPERTIES.getProperty("ConfigVersion"))
-				|| !PROPERTIES.getProperty("ConfigVersion").equals(Mantle.VERSION)) {
-			logger.warning(
-					"Your machines data are detected to be in previous version, there may be some changes in new version!");
-			legacyConfig = true;
-		}
-
 		for (Entry<Object, Object> entry : PROPERTIES.entrySet()) {
 			String loc = (String) entry.getKey();
 			String type = (String) entry.getValue();
 
-			if (StringUtils.isBlank(loc) || StringUtils.isBlank(type)) {
-				continue;
-			}
-
-			Location location = Utils.deserializeLocation(loc);
-
-			if (legacyConfig && location == null) {
-				try {
-					String[] split = loc.split("_");
-					location = new Location(Bukkit.getWorld(split[0]), NumberConversions.toInt(split[1]),
-							NumberConversions.toInt(split[2]), NumberConversions.toInt(split[3]));
-				} catch (Throwable t) {
-					logger.warning(loc + " was failed to deserialize!");
-				}
-			}
-
-			if (location == null) {
-				continue;
-			}
-
-			Block block = location.getBlock();
-
-			if (block == null || block.isEmpty()) {
-				continue;
-			}
-
+			Block block = Utils.deserializeLocation(loc).getBlock();
 			BlockMachine machine = null;
 
 			switch (type.toLowerCase()) {

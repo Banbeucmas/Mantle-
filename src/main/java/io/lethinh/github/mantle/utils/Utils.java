@@ -143,54 +143,40 @@ public final class Utils {
 	}
 
 	public static Inventory deserializeInventory(NBTTagCompound nbt) {
-		try {
-			Inventory inventory = Bukkit.createInventory(null, nbt.getInteger("Size"), nbt.getString("Title"));
-			NBTTagList tagList = nbt.getTagList("Items", Constants.NBT.TAG_COMPOUND);
+		Inventory inventory = Bukkit.createInventory(null, nbt.getInteger("Size"), nbt.getString("Title"));
+		NBTTagList tagList = nbt.getTagList("Items", Constants.NBT.TAG_COMPOUND);
 
-			for (int i = 0; i < tagList.tagCount(); ++i) {
-				NBTTagCompound itemTags = tagList.getCompoundTagAt(i);
-				int slot = itemTags.getInteger("Slot");
+		for (int i = 0; i < tagList.tagCount(); ++i) {
+			NBTTagCompound itemTags = tagList.getCompoundTagAt(i);
+			int slot = itemTags.getInteger("Slot");
 
-				if (slot >= 0 && slot < inventory.getSize()) {
-					inventory.setItem(slot, readStackFromNBT(itemTags));
-				}
+			if (slot >= 0 && slot < inventory.getSize()) {
+				inventory.setItem(slot, readStackFromNBT(itemTags));
 			}
-
-			return inventory;
-		} catch (Throwable t) {
-			return null;
 		}
+
+		return inventory;
 	}
 
 	public static String serializeLocation(Location location) {
-		return location.getWorld().getName() + "," + location.getBlockX() + "," + location.getBlockY() + ","
+		return location.getWorld().getName() + "_" + location.getBlockX() + "_" + location.getBlockY() + "_"
 				+ location.getBlockZ();
 	}
 
 	public static Location deserializeLocation(String serialization) {
-		try {
-			String[] split = serialization.split(",");
-
-			if (split.length == 0) {
-				return null;
-			}
-
-			return new Location(Bukkit.getWorld(split[0]), NumberConversions.toInt(split[1]),
-					NumberConversions.toInt(split[2]), NumberConversions.toInt(split[3]));
-		} catch (Throwable t) {
-			return null;
-		}
+		String[] split = serialization.split("_");
+		return new Location(Bukkit.getWorld(split[0]), NumberConversions.toInt(split[1]),
+				NumberConversions.toInt(split[2]), NumberConversions.toInt(split[3]));
 	}
 
 	/* World */
 	public static boolean isGrowable(Material material) {
 		return material == Material.SOIL || material == Material.CROPS || material == Material.SEEDS
-				|| material == Material.CARROT || material == Material.BEETROOT_BLOCK || material == Material.MELON_STEM
 				|| material == Material.BEETROOT_BLOCK || material == Material.MELON_STEM
 				|| material == Material.PUMPKIN_STEM;
 	}
 
-	public static boolean areStacksEqualIgnoreDurabilityAndAmount(ItemStack stackA, ItemStack stackB) {
+	public static boolean areStacksEqualIgnoreDurability(ItemStack stackA, ItemStack stackB) {
 		return stackA != null && stackB != null && stackA.getType() == stackB.getType() && stackA.hasItemMeta()
 				&& stackB.hasItemMeta() && Bukkit.getItemFactory().equals(stackA.getItemMeta(), stackB.getItemMeta());
 	}
